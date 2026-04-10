@@ -4,7 +4,6 @@ use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Channel\AMQPChannel;
 
 
-
 final class Connection
 {
     private ?AMQPStreamConnection $conn = null;
@@ -35,14 +34,5 @@ final class Connection
         return $this->ch;
     }
 
-
-
-    public function close(): void
-    {
-        $this->ch?->close();
-        $this->conn?->close();
-        $this->ch = null;
-        $this->conn = null;
-    }
 }
 

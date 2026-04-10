@@ -4,7 +4,6 @@ namespace config\Rabbitmq;
 
 use PhpAmqpLib\Message\AMQPMessage;
 
-
 class Publisher
 {
 
