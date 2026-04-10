@@ -24,20 +24,22 @@ class OrderConsumer
         $ch->queue_bind($this->queueName, $this->exchangeName, $this->queueName);
 
         $ch->basic_qos(null, 10, null);
+        $logDir = __DIR__ . '/../logs';
+
+
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0777, true);
+        }
+        $logFile = $logDir . '/orders.log';
 
         $ch->basic_consume(
             $this->queueName, '', false, false, false, false,
-            function (AMQPMessage $m): void {
+            function (AMQPMessage $m) use ($logFile): void {
                 try {
-                    $logDir = __DIR__ . '/../logs';
 
-
-                    if (!is_dir($logDir)) {
-                        mkdir($logDir, 0777, true);
-                    }
                     $body = (string) $m->getBody();
                     $logEntry = "[" . date('Y-m-d H:i:s') . "] Order Created: " . $body . PHP_EOL;
-                    file_put_contents($logDir . '/../logs/orders.log', $logEntry, FILE_APPEND);
+                    file_put_contents($logFile . '/../logs/orders.log', $logEntry, FILE_APPEND);
 
                     $m->ack();
                 } catch (\Throwable $e) {
