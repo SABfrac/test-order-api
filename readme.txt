@@ -1,9 +1,17 @@
-Стартуем через Docker.
+## Запуск
+
+1.Клонируем репозиторий
+
+2.Стартуем через Docker
 
 docker compose up -d
 
+Установить зависимости (если не установились автоматически)
 
-Таблицы
+docker-compose exec app composer install
+
+
+## Таблицы
 
 CREATE TABLE products (
                           id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -30,7 +38,7 @@ INSERT INTO products(name, price, stock) VALUES
                                              ('Tshirt', 1500, 25),
                                              ('Hoodie', 3500.25, 5);
 
-для postman 
+## для postman 
 (POST)
 http://localhost:8000/orders
 в body 
@@ -67,7 +75,7 @@ ProductService:
 OrderService:
 это слой бизнес-логики, который координирует работу репозиториев и других сервисов. Асинхронное взаимодействие через RabbitMQ реализует событийную модель, где Consumer выступает в роли удаленного наблюдателя за событием создания заказа».
 
-Алгоритм: Открывает транзакцию -> репозиторий лочит -> ProductService уменьшить stock -> тригерим OrderRepository создать запись -> Коммитит -> Publisher отправляет уведомление.
+Алгоритм: Открывает транзакцию -> репозиторий лочит строку -> ProductService уменьшить stock ->  OrderRepository создать запись -> Коммитит -> Publisher отправляет уведомление.
 
 
 
