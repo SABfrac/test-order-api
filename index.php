@@ -15,9 +15,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-$pdo = new PDO('mysql:host=db;dbname=app;charset=utf8mb4', 'app', 'app', [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
+$pdo = new PDO('mysql:host=db;dbname=app;charset=utf8mb4', 'app', 'app');
 
 $redis = new Redis();
 $redis->connect('redis', 6379);
