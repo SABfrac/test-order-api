@@ -10,6 +10,8 @@ docker compose up -d
 
 docker-compose exec app composer install
 
+docker-compose stop worker - остановка воркера
+
 
 ## Таблицы
 

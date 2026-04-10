@@ -1,12 +1,16 @@
 <?php
 
 namespace service;
-use config\Rabbitmq\Publisher;
 use repository\OrderRepository;
 use repository\ProductRepository;
 
 
-
+/**
+ * Сервис управления заказами.
+ *
+ * Реализует  создание заказа, контролирует целостность данных
+ * через транзакции БД и координирует работу смежных систем (Redis, RabbitMQ).
+ */
 class OrderService {
     public function __construct(
         private \PDO $pdo,
@@ -16,6 +20,22 @@ class OrderService {
         private Publisher $publisher
     ) {}
 
+    /**
+     * Создает заказ на покупку товара.
+     *
+     * Процесс включает:
+     * 1. Атомарную проверку и блокировку остатка (SELECT FOR UPDATE).
+     * 2. Списание товара и сохранение заказа в рамках одной транзакции.
+     * 3. Инвалидацию кэша продуктов.
+     * 4. Асинхронное уведомление других систем через RabbitMQ.
+     *
+     *
+     * @return [order_id => int, status => string, total_price => string] .
+     *
+     * @throws \InvalidArgumentException Если передано некорректное количество.
+     * @throws \RuntimeException         Если продукт не найден или недостаточно товара на складе.
+     * @throws \Throwable                При критических ошибках БД (транзакция откатывается).
+     */
     public function createOrder(int $productId, int $qty): array {
         if ($qty <= 0) {
             throw new \InvalidArgumentException("quantity must be > 0");
@@ -25,12 +45,12 @@ class OrderService {
         try {
             $product = $this->productsRepo->getForUpdate($productId);
             if (!$product) {
-                throw new \RuntimeException("product not found");
+                throw new \RuntimeException("товар не найден");
             }
 
             $ok = $this->productService->decreaseStock($productId, $qty);
             if (!$ok) {
-                throw new \RuntimeException("not enough stock");
+                throw new \RuntimeException("недостаточно на складе");
             }
 
 
@@ -47,8 +67,6 @@ class OrderService {
 
         $this->productService->invalidateListCache();
 
-        //  Публикуем событие (после коммита)
-        //  если publishOrderCreated упадёт — заказ уже создан.
         try {
             $this->publisher->publishOrderCreated([
                 'order_id' => $orderId,

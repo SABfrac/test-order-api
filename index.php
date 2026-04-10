@@ -1,13 +1,13 @@
 <?php
 
-use  config\Db;
-use  config\RedisCache;
-use  repository\ProductRepository;
-use  repository\OrderRepository;
-use  service\ProductService;
-use  service\OrderService;
-use  config\Rabbitmq\Publisher;
-use  config\Rabbitmq\Connection;
+use config\Db;
+use config\Rabbitmq\Connection;
+use config\RedisCache;
+use repository\OrderRepository;
+use repository\ProductRepository;
+use service\OrderService;
+use service\ProductService;
+use service\Publisher;
 
 
 require __DIR__ . '/vendor/autoload.php';
@@ -28,9 +28,9 @@ $productRepo = new ProductRepository($pdo);
 $orderRepo = new OrderRepository($pdo);
 $rabbit = new Connection('rabbitmq', 5672, 'guest', 'guest');
 $publisher = new Publisher(
-                            $rabbit,
-                   Connection::EXCHANGE_ORDERS,
-                  Connection::ROUTING_ORDER_CREATED
+    $rabbit,
+    Connection::EXCHANGE_ORDERS,
+    Connection::ROUTING_ORDER_CREATED
 );
 $productService = new ProductService($productRepo, $cache);
 $orderService = new OrderService($pdo, $productRepo, $orderRepo, $productService, $publisher);

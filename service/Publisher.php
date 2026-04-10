@@ -1,16 +1,22 @@
 <?php
-namespace config\Rabbitmq;
+namespace service;
 
 
+use config\Rabbitmq\Connection;
 use PhpAmqpLib\Message\AMQPMessage;
+
+/**
+ * Публикует в обменник
+ */
 
 class Publisher
 {
 
     public function __construct(
-                                private Connection $rabbit,
-                                private string $exchange,
-                                private string $routingKey  )
+        private Connection $rabbit,
+        private string     $exchange,
+        private string     $routingKey
+    )
     {}
 
     public function publishOrderCreated(array $payload): void
