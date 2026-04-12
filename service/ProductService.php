@@ -38,9 +38,7 @@ class ProductService implements ProductProvider {
     }
 
     /**
-     * Возвращает список всех продуктов.
-     *
-     * Сначала  из кеша если данных нет из БД,
+     * Возвращает список всех продуктов из БД.
      *
      * @return array
      */
