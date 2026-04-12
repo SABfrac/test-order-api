@@ -10,37 +10,53 @@ use service\ProductService;
 use service\Publisher;
 
 
+
 require __DIR__ . '/vendor/autoload.php';
 
 
 header('Content-Type: application/json; charset=utf-8');
 
+//1. Инфраструктура
 $pdo = new PDO('mysql:host=db;dbname=app;charset=utf8mb4', 'app', 'app');
-
 $redis = new Redis();
 $redis->connect('redis', 6379);
 
-$rabbitConn = new PhpAmqpLib\Connection\AMQPStreamConnection('rabbitmq', 5672, 'guest', 'guest');
-
-$db = new Db($pdo);
-$cache = new RedisCache($redis);
+// 2. Репозитории (низкоуровневая работа с БД)
 $productRepo = new ProductRepository($pdo);
 $orderRepo = new OrderRepository($pdo);
+$cache = new RedisCache($redis);
+
+// 3. События (RabbitMQ)
 $rabbit = new Connection('rabbitmq', 5672, 'guest', 'guest');
 $publisher = new Publisher(
     $rabbit,
     Connection::EXCHANGE_ORDERS,
     Connection::ROUTING_ORDER_CREATED
 );
-$productService = new ProductService($productRepo, $cache);
-$orderService = new OrderService($pdo, $productRepo, $orderRepo, $productService, $publisher);
+
+// 4. Бизнес-логика (Сервисы и Декораторы)
+$productService = new ProductService($productRepo);
+// Декорируем сервис кэшированием
+$cachedProductProvider = new CachingProductProvider($productService, $cache);
+
+//  Подписываем декоратор на события изменения остатков в сервисе
+$productService->addObserver($cachedProductProvider);
+
+// OrderService получает декоратор, который "умеет" в кэш
+$orderService = new OrderService(
+    $pdo,
+    $productRepo,
+    $orderRepo,
+    $cachedProductProvider,
+    $publisher
+);
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 try {
     if ($method === 'GET' && $path === '/products') {
-        echo json_encode(['data' => $productService->listProducts()], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['data' => $cachedProductProvider->listProducts()], JSON_UNESCAPED_UNICODE);
         exit;
     }
 

@@ -2,6 +2,8 @@
 
 namespace repository;
 
+use interfaces\ProductProvider;
+
 
 class ProductRepository
 {

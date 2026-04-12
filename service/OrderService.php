@@ -3,31 +3,35 @@
 namespace service;
 use repository\OrderRepository;
 use repository\ProductRepository;
+use interfaces\ProductProvider;
 
 
 /**
  * Сервис управления заказами.
  *
  * Реализует  создание заказа, контролирует целостность данных
- * через транзакции БД и координирует работу смежных систем (Redis, RabbitMQ).
+ * через транзакции БД и взаимодействие с товарным провайдером и публикацию событий.
  */
 class OrderService {
     public function __construct(
         private \PDO $pdo,
         private ProductRepository $productsRepo,
         private OrderRepository $orders,
-        private ProductService $productService,
+        private ProductProvider $productProvider,
         private Publisher $publisher
     ) {}
 
     /**
      * Создает заказ на покупку товара.
      *
-     * Процесс включает:
-     * 1. Атомарную проверку и блокировку остатка (SELECT FOR UPDATE).
-     * 2. Списание товара и сохранение заказа в рамках одной транзакции.
-     * 3. Инвалидацию кэша продуктов.
-     * 4. Асинхронное уведомление других систем через RabbitMQ.
+     * Алгоритм работы:
+     *  1. Валидация входных данных.
+     *  2. Старт транзакции.
+     *  3. Блокировка строки товара (FOR UPDATE) для предотвращения race conditions.
+     *  4. Списание остатка через ProductProvider (автоматически вызывает сброс кэша через Observer).
+     *  5. Регистрация заказа в базе данных.
+     *  6. Фиксация (commit) транзакции.
+     *  7. Отправка уведомления в  RabbitMQ вне транзакции.
      *
      *
      * @return [order_id => int, status => string, total_price => string] .
@@ -48,7 +52,7 @@ class OrderService {
                 throw new \RuntimeException("товар не найден");
             }
 
-            $ok = $this->productService->decreaseStock($productId, $qty);
+            $ok = $this->productProvider->decreaseStock($productId, $qty);
             if (!$ok) {
                 throw new \RuntimeException("недостаточно на складе");
             }
@@ -64,8 +68,6 @@ class OrderService {
             throw $e;
         }
 
-
-        $this->productService->invalidateListCache();
 
         try {
             $this->publisher->publishOrderCreated([

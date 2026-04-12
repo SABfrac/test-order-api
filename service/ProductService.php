@@ -3,20 +3,23 @@ namespace service;
 
 use repository\ProductRepository;
 use config\RedisCache;
+use interfaces\StockObserver;
+use interfaces\ProductProvider;
 
 /**
  * Сервис для управления продуктами и их кэшированием.
  * Отвечает за координацию действий между БД и Redis.
  */
 
-class ProductService {
-    private const CACHE_KEY = 'products_list';
-    private const TTL = 30;
+class ProductService implements ProductProvider {
+    private array $observers = [];
 
     public function __construct(
-        private ProductRepository $productRepo,
-        private RedisCache $cache
-    ) {}
+        private ProductRepository $productRepo) {}
+
+    public function addObserver(StockObserver $observer): void {
+        $this->observers[] = $observer;
+    }
 
 
     /**
@@ -27,7 +30,9 @@ class ProductService {
     {
         $ok = $this->productRepo->decrementStock($productId, $qty);
         if ($ok) {
-            $this->invalidateListCache();
+            foreach ($this->observers as $observer) {
+                $observer->onStockChanged();
+            }
         }
         return $ok;
     }
@@ -40,17 +45,9 @@ class ProductService {
      * @return array
      */
     public function listProducts(): array {
-        $cached = $this->cache->getJson(self::CACHE_KEY);
-        if (is_array($cached)) {
-            return $cached;
-        }
-        $rows = $this->productRepo->listAll();
-        $this->cache->setJson(self::CACHE_KEY, $rows, self::TTL);
-        return $rows;
+
+        return $this->productRepo->listAll();
     }
 
-    public function invalidateListCache(): void
-    {
-        $this->cache->del(self::CACHE_KEY);
-    }
+
 }
